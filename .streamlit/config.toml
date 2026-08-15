@@ -1,0 +1,10 @@
+# Bind to localhost only. Streamlit's default is 0.0.0.0, which publishes the
+# app to everyone on your wifi/LAN -- not what you want for a tool you paste
+# production logs into. This keeps it reachable only from this machine.
+[server]
+address = "localhost"
+port = 8501
+headless = true
+
+[browser]
+gatherUsageStats = false

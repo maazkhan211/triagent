@@ -1,0 +1,50 @@
+[
+  {
+    "case_id": "EDGE-01",
+    "raw_log": "2026-08-09T03:12:44.001Z FATAL [inventory-service] infra.disk - Disk usage at 62% on staging replica db-staging-02. Alert threshold was misconfigured to fire at 60% instead of 90% (config bug, ticket INFRA-441 already filed). No customer impact, staging only, replica is not in the production failover path.",
+    "true_severity": "low",
+    "why_rules_fail": "Keyword 'FATAL' triggers a critical rule, but context (staging, misconfigured threshold, no customer impact) makes this a non-issue."
+  },
+  {
+    "case_id": "EDGE-02",
+    "raw_log": "2026-08-09T03:15:10.221Z WARN [checkout-service] http.client - Retrying call to payment-gateway after timeout (attempt 15 of 15 in the last 90 seconds). All retries exhausted, checkout is now failing for all users in the EU region. No fallback path configured.",
+    "true_severity": "critical",
+    "why_rules_fail": "Keywords 'retry' and 'retrying' typically map to low severity, but the full context (retries exhausted, checkout failing for all EU users, no fallback) is a critical outage."
+  },
+  {
+    "case_id": "EDGE-03",
+    "raw_log": "2026-08-09T03:20:55.884Z ERROR [analytics-pipeline] app - Call to deprecated endpoint /v1/legacy/ingest returned 500 for a background batch job that has automatic retry-with-backoff configured; job succeeded on the 2nd attempt with zero data loss. Deprecated endpoint sunset is scheduled for next quarter.",
+    "true_severity": "low",
+    "why_rules_fail": "Keyword 'ERROR' plus '500' looks alarming, but 'deprecated' + 'succeeded on 2nd attempt' + 'zero data loss' means this is a low-priority cleanup item, not an incident."
+  },
+  {
+    "case_id": "EDGE-04",
+    "raw_log": "2026-08-09T03:25:03.512Z INFO [image-processing-service] worker - OOM killer invoked for short-lived batch-resize pod (single job, non-customer-facing nightly thumbnail regeneration). Kubernetes rescheduled the pod automatically; job re-ran and completed successfully with no data loss.",
+    "true_severity": "low",
+    "why_rules_fail": "Keyword 'OOM' strongly maps to critical, but log level is INFO and the surrounding context describes an auto-recovered, non-customer-facing batch job."
+  },
+  {
+    "case_id": "EDGE-05",
+    "raw_log": "2026-08-09T03:30:44.998Z WARN [auth-service] app - Deprecated password-hash migration path invoked for a user login. This is expected for the ~0.3% of accounts not yet migrated to bcrypt; login succeeded normally, migration completed transparently.",
+    "true_severity": "low",
+    "why_rules_fail": "Contains 'deprecated' which a naive rule already gets right by luck, but also demonstrates that surrounding context ('succeeded normally', 'expected') confirms low severity rather than an error."
+  },
+  {
+    "case_id": "EDGE-06",
+    "raw_log": "2026-08-09T03:35:12.700Z ERROR [payment-gateway] app - Timeout calling fraud-scoring-service (2500ms). Fraud check is fail-open by design for latency reasons, so the transaction was approved without a fraud score. This is the 40th fail-open event in the last hour, up from a baseline of ~1/hour, coinciding with a spike in chargeback-flagged transactions.",
+    "true_severity": "critical",
+    "why_rules_fail": "A rule sees 'timeout' -> critical by luck here, but a shallow rule could also read 'approved' and downgrade it; the real signal that makes this critical is the anomalous spike (40x baseline) correlated with fraud risk, which requires reasoning over the whole log, not a keyword."
+  },
+  {
+    "case_id": "EDGE-07",
+    "raw_log": "2026-08-09T03:40:29.113Z WARN [notification-service] app - Retry exhausted (3/3) sending marketing email campaign batch #4471; falling back to next scheduled send window in 6 hours. Non-transactional, no customer-impacting orders or account actions involved.",
+    "true_severity": "low",
+    "why_rules_fail": "Rule sees 'retry exhausted' as a strong critical/high signal, but this is a non-transactional marketing email with a graceful fallback and no user-facing impact."
+  },
+  {
+    "case_id": "EDGE-08",
+    "raw_log": "2026-08-09T03:45:51.442Z ERROR [order-service] app - NullPointerException in OrderConfirmationEmail.send() for guest checkout order #88213. Order was still placed and charged successfully; only the confirmation email failed to send. Affects an estimated 2% of guest checkouts based on last week's traffic.",
+    "true_severity": "medium",
+    "why_rules_fail": "Rule sees bare 'ERROR' + exception name and may default to high/critical, but the order itself succeeded (payment went through) and only a non-critical side-effect (email) failed for a bounded subset of traffic -- this is a real but medium-priority bug, not an outage."
+  }
+]

@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets / local config -- never commit
+.env
+
+# Local tooling config (Claude Code permissions, machine-specific paths)
+.claude/
+
+# Generated at runtime: the vector index rebuilds from data/ via build_index.py
+chroma_db/
+
+*.log

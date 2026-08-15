@@ -1,0 +1,592 @@
+[
+  {
+    "log_id": "INC-0019",
+    "timestamp": "2026-02-25T09:01:00.000Z",
+    "service": "checkout-service",
+    "error_type": "OutOfMemoryError",
+    "layer": "application",
+    "severity": "critical",
+    "raw_log": "2026-02-25T09:01:00.000Z FATAL [checkout-service] jvm - java.lang.OutOfMemoryError: Java heap space\njava.lang.OutOfMemoryError: Java heap space\n\tat java.base/java.util.Arrays.copyOf(Arrays.java:3745)\n\tat checkout-service.pipeline.ImageResizer.loadFullResolution(ImageResizer.java:74)\n\tat checkout-service.worker.ResizeWorker.run(ResizeWorker.java:29)\nContainer was OOMKilled by kubelet.",
+    "resolution": "Image resize worker was loading full-resolution uploads (up to 80MB) entirely into memory before downscaling, and a batch of high-res uploads from a single customer triggered repeated OOMKills. Switched to streaming/tiled decoding and capped max input dimensions; also raised container memory limit as a secondary safety margin."
+  },
+  {
+    "log_id": "INC-0056",
+    "timestamp": "2026-03-07T16:54:00.000Z",
+    "service": "notification-service",
+    "error_type": "IndexOutOfBounds",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-03-07T16:54:00.000Z ERROR [notification-service] app - IndexError: list index out of range\n  File \"/app/reports/weekly_summary.py\", line 30, in top_categories\n    return sorted_categories[:5][top_n]\nIndexError: list index out of range",
+    "resolution": "Internal weekly reporting script (not customer-facing) failed when fewer than 5 categories had sales in a given week. Fixed slicing logic; script reran successfully on manual trigger, no data was lost since it's idempotent."
+  },
+  {
+    "log_id": "INC-0043",
+    "timestamp": "2026-03-10T05:23:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "DiskSpaceWarning",
+    "layer": "infrastructure",
+    "severity": "low",
+    "raw_log": "2026-03-10T05:23:00.000Z WARN [image-processing-service] infra.disk - Disk usage at 71% on volume /data (staging replica), threshold alert set at 90%\nNo action required; monitoring only.",
+    "resolution": "Staging replica disk usage climbing gradually from log retention, well under the 90% alert threshold. Scheduled log rotation cleanup job; no production impact, not urgent."
+  },
+  {
+    "log_id": "INC-0004",
+    "timestamp": "2026-03-11T04:26:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "ConnectionPoolExhausted",
+    "layer": "database",
+    "severity": "critical",
+    "raw_log": "2026-03-11T04:26:00.000Z ERROR [image-processing-service] db.pool.HikariPool - HikariPool-1 - Connection is not available, request timed out after 30000ms.\njava.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms\n\tat com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)\n\tat com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)\n\tat image-processing-service.repository.OrderRepository.save(OrderRepository.java:88)\n\tat image-processing-service.service.CheckoutService.placeOrder(CheckoutService.java:142)",
+    "resolution": "Root cause: connection pool max size (10) was undersized for peak traffic after a marketing campaign spike. Bumped HikariCP maximumPoolSize to 50 and added a PagerDuty alert on pool utilization > 80%. Also found a leaked connection in a batch job that wasn't closing on exception; fixed with try-with-resources."
+  },
+  {
+    "log_id": "INC-0038",
+    "timestamp": "2026-03-12T11:02:00.000Z",
+    "service": "search-service",
+    "error_type": "SerializationError",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-03-12T11:02:00.000Z ERROR [search-service] app - Failed to deserialize message from queue 'order.events'\ncom.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"loyaltyTier\" (class OrderEvent), not marked as ignorable\n\tat search-service.consumer.OrderEventConsumer.onMessage(OrderEventConsumer.java:26)",
+    "resolution": "order-service started publishing a new 'loyaltyTier' field before analytics-pipeline's consumer schema was updated (deploy ordering mistake). Added @JsonIgnoreProperties(ignoreUnknown = true) as a safety net and updated the deploy runbook to require consumer-first schema rollout for additive fields."
+  },
+  {
+    "log_id": "INC-0057",
+    "timestamp": "2026-03-14T21:20:00.000Z",
+    "service": "analytics-pipeline",
+    "error_type": "IndexOutOfBounds",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-03-14T21:20:00.000Z ERROR [analytics-pipeline] app - IndexError: list index out of range\n  File \"/app/reports/weekly_summary.py\", line 30, in top_categories\n    return sorted_categories[:5][top_n]\nIndexError: list index out of range",
+    "resolution": "Internal weekly reporting script (not customer-facing) failed when fewer than 5 categories had sales in a given week. Fixed slicing logic; script reran successfully on manual trigger, no data was lost since it's idempotent."
+  },
+  {
+    "log_id": "INC-0026",
+    "timestamp": "2026-03-15T13:54:00.000Z",
+    "service": "search-service",
+    "error_type": "RetryExhausted",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-03-15T13:54:00.000Z WARN [search-service] http.client - Retry attempts exhausted (3/3) calling tax-calculation-api, last status 503\n\tat search-service.client.TaxClient.getRate(TaxClient.java:63)\n\tat search-service.service.PricingService.applyTax(PricingService.java:22)\nFalling back to cached tax table (last updated 4h ago).",
+    "resolution": "Upstream tax API had a brief maintenance window. Our fallback-to-cache path worked as designed, so no customer-visible impact \u2014 orders used slightly stale (but valid) tax rates for ~12 minutes. No code change needed; confirmed cache fallback logic is sound."
+  },
+  {
+    "log_id": "INC-0022",
+    "timestamp": "2026-03-16T09:37:00.000Z",
+    "service": "notification-service",
+    "error_type": "NullPointerException",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-03-16T09:37:00.000Z ERROR [notification-service] app - Unhandled exception while processing request\njava.lang.NullPointerException: Cannot invoke \"User.getEmail()\" because \"user\" is null\n\tat notification-service.service.NotificationService.sendReceipt(NotificationService.java:41)\n\tat notification-service.controller.OrderController.confirm(OrderController.java:97)",
+    "resolution": "Guest checkout orders don't have a User record, but the receipt-sending path assumed one always existed. Added a null check and fall back to sending the receipt to the guest email captured at checkout instead of the User entity."
+  },
+  {
+    "log_id": "INC-0025",
+    "timestamp": "2026-03-17T11:46:00.000Z",
+    "service": "checkout-service",
+    "error_type": "RetryExhausted",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-03-17T11:46:00.000Z WARN [checkout-service] http.client - Retry attempts exhausted (3/3) calling tax-calculation-api, last status 503\n\tat checkout-service.client.TaxClient.getRate(TaxClient.java:63)\n\tat checkout-service.service.PricingService.applyTax(PricingService.java:22)\nFalling back to cached tax table (last updated 4h ago).",
+    "resolution": "Upstream tax API had a brief maintenance window. Our fallback-to-cache path worked as designed, so no customer-visible impact \u2014 orders used slightly stale (but valid) tax rates for ~12 minutes. No code change needed; confirmed cache fallback logic is sound."
+  },
+  {
+    "log_id": "INC-0020",
+    "timestamp": "2026-03-21T21:20:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "NullPointerException",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-03-21T21:20:00.000Z ERROR [payment-gateway] app - Unhandled exception while processing request\njava.lang.NullPointerException: Cannot invoke \"User.getEmail()\" because \"user\" is null\n\tat payment-gateway.service.NotificationService.sendReceipt(NotificationService.java:41)\n\tat payment-gateway.controller.OrderController.confirm(OrderController.java:97)",
+    "resolution": "Guest checkout orders don't have a User record, but the receipt-sending path assumed one always existed. Added a null check and fall back to sending the receipt to the guest email captured at checkout instead of the User entity."
+  },
+  {
+    "log_id": "INC-0010",
+    "timestamp": "2026-03-25T07:05:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "ConnectionRefused",
+    "layer": "network",
+    "severity": "critical",
+    "raw_log": "2026-03-25T07:05:00.000Z FATAL [user-profile-service] http.client - Connect to payments-internal:8443 failed: Connection refused\njava.net.ConnectException: Connection refused\n\tat java.base/sun.nio.ch.Net.connect0(Native Method)\n\tat user-profile-service.client.PaymentClient.charge(PaymentClient.java:19)\n\tat user-profile-service.service.CheckoutService.completeCheckout(CheckoutService.java:88)",
+    "resolution": "payments-internal pods were killed by a bad rollout (readiness probe misconfigured, traffic routed to pods still starting). Rolled back the deploy and fixed the readiness probe to check an actual DB connection instead of just process liveness."
+  },
+  {
+    "log_id": "INC-0012",
+    "timestamp": "2026-03-25T22:50:00.000Z",
+    "service": "order-service",
+    "error_type": "ConnectionRefused",
+    "layer": "network",
+    "severity": "critical",
+    "raw_log": "2026-03-25T22:50:00.000Z FATAL [order-service] http.client - Connect to payments-internal:8443 failed: Connection refused\njava.net.ConnectException: Connection refused\n\tat java.base/sun.nio.ch.Net.connect0(Native Method)\n\tat order-service.client.PaymentClient.charge(PaymentClient.java:19)\n\tat order-service.service.CheckoutService.completeCheckout(CheckoutService.java:88)",
+    "resolution": "payments-internal pods were killed by a bad rollout (readiness probe misconfigured, traffic routed to pods still starting). Rolled back the deploy and fixed the readiness probe to check an actual DB connection instead of just process liveness."
+  },
+  {
+    "log_id": "INC-0048",
+    "timestamp": "2026-03-28T06:17:00.000Z",
+    "service": "checkout-service",
+    "error_type": "UnhandledPromiseRejection",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-03-28T06:17:00.000Z ERROR [checkout-service] node - UnhandledPromiseRejectionWarning: Error: Cannot read properties of undefined (reading 'items')\n    at CartService.getTotal (/app/src/services/cart.js:52:19)\n    at async CartController.view (/app/src/controllers/cart.js:14:22)",
+    "resolution": "Race condition: cart total was computed before the cart-items fetch promise resolved on cold cache. Awaited the fetch properly and added a loading guard in the controller."
+  },
+  {
+    "log_id": "INC-0002",
+    "timestamp": "2026-04-06T18:54:00.000Z",
+    "service": "checkout-service",
+    "error_type": "ConnectionPoolExhausted",
+    "layer": "database",
+    "severity": "critical",
+    "raw_log": "2026-04-06T18:54:00.000Z ERROR [checkout-service] db.pool.HikariPool - HikariPool-1 - Connection is not available, request timed out after 30000ms.\njava.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms\n\tat com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)\n\tat com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)\n\tat checkout-service.repository.OrderRepository.save(OrderRepository.java:88)\n\tat checkout-service.service.CheckoutService.placeOrder(CheckoutService.java:142)",
+    "resolution": "Root cause: connection pool max size (10) was undersized for peak traffic after a marketing campaign spike. Bumped HikariCP maximumPoolSize to 50 and added a PagerDuty alert on pool utilization > 80%. Also found a leaked connection in a batch job that wasn't closing on exception; fixed with try-with-resources."
+  },
+  {
+    "log_id": "INC-0017",
+    "timestamp": "2026-04-07T22:31:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "OutOfMemoryError",
+    "layer": "application",
+    "severity": "critical",
+    "raw_log": "2026-04-07T22:31:00.000Z FATAL [image-processing-service] jvm - java.lang.OutOfMemoryError: Java heap space\njava.lang.OutOfMemoryError: Java heap space\n\tat java.base/java.util.Arrays.copyOf(Arrays.java:3745)\n\tat image-processing-service.pipeline.ImageResizer.loadFullResolution(ImageResizer.java:74)\n\tat image-processing-service.worker.ResizeWorker.run(ResizeWorker.java:29)\nContainer was OOMKilled by kubelet.",
+    "resolution": "Image resize worker was loading full-resolution uploads (up to 80MB) entirely into memory before downscaling, and a batch of high-res uploads from a single customer triggered repeated OOMKills. Switched to streaming/tiled decoding and capped max input dimensions; also raised container memory limit as a secondary safety margin."
+  },
+  {
+    "log_id": "INC-0008",
+    "timestamp": "2026-04-10T06:19:00.000Z",
+    "service": "checkout-service",
+    "error_type": "DNSResolutionFailure",
+    "layer": "network",
+    "severity": "high",
+    "raw_log": "2026-04-10T06:19:00.000Z ERROR [checkout-service] http.client - Failed to resolve host: api.partner-shipping.com\njava.net.UnknownHostException: api.partner-shipping.com\n\tat java.base/java.net.InetAddress$CachedAddresses.get(InetAddress.java:797)\n\tat checkout-service.client.ShippingClient.getRates(ShippingClient.java:47)\n\tat checkout-service.service.OrderService.calculateShipping(OrderService.java:210)",
+    "resolution": "Upstream partner rotated their DNS records and our internal resolver's cache TTL was stale for 20 minutes cluster-wide. Not fixable on our side beyond adding a circuit breaker + fallback shipping estimate so checkout doesn't hard-fail when the partner API is unreachable."
+  },
+  {
+    "log_id": "INC-0003",
+    "timestamp": "2026-04-16T23:13:00.000Z",
+    "service": "notification-service",
+    "error_type": "ConnectionPoolExhausted",
+    "layer": "database",
+    "severity": "critical",
+    "raw_log": "2026-04-16T23:13:00.000Z ERROR [notification-service] db.pool.HikariPool - HikariPool-1 - Connection is not available, request timed out after 30000ms.\njava.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms\n\tat com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)\n\tat com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)\n\tat notification-service.repository.OrderRepository.save(OrderRepository.java:88)\n\tat notification-service.service.CheckoutService.placeOrder(CheckoutService.java:142)",
+    "resolution": "Root cause: connection pool max size (10) was undersized for peak traffic after a marketing campaign spike. Bumped HikariCP maximumPoolSize to 50 and added a PagerDuty alert on pool utilization > 80%. Also found a leaked connection in a batch job that wasn't closing on exception; fixed with try-with-resources."
+  },
+  {
+    "log_id": "INC-0029",
+    "timestamp": "2026-04-18T01:43:00.000Z",
+    "service": "search-service",
+    "error_type": "DeprecatedAPIWarning",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-04-18T01:43:00.000Z WARN [search-service] app - Call to /v1/legacy/search is deprecated and will be removed on 2026-12-01. Client: internal-cron-job. Please migrate to /v2/search.\n\tat search-service.controller.LegacySearchController.search(LegacySearchController.java:15)",
+    "resolution": "Informational only \u2014 an internal cron job was still calling the deprecated v1 search endpoint. Filed a low-priority ticket to migrate the cron job before the v1 sunset date; no immediate action required."
+  },
+  {
+    "log_id": "INC-0039",
+    "timestamp": "2026-04-22T17:31:00.000Z",
+    "service": "inventory-service",
+    "error_type": "SerializationError",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-04-22T17:31:00.000Z ERROR [inventory-service] app - Failed to deserialize message from queue 'order.events'\ncom.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"loyaltyTier\" (class OrderEvent), not marked as ignorable\n\tat inventory-service.consumer.OrderEventConsumer.onMessage(OrderEventConsumer.java:26)",
+    "resolution": "order-service started publishing a new 'loyaltyTier' field before analytics-pipeline's consumer schema was updated (deploy ordering mistake). Added @JsonIgnoreProperties(ignoreUnknown = true) as a safety net and updated the deploy runbook to require consumer-first schema rollout for additive fields."
+  },
+  {
+    "log_id": "INC-0052",
+    "timestamp": "2026-04-23T01:39:00.000Z",
+    "service": "checkout-service",
+    "error_type": "TimeoutError",
+    "layer": "database",
+    "severity": "high",
+    "raw_log": "2026-04-23T01:39:00.000Z ERROR [checkout-service] db - Query timeout after 15000ms: SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC\n\tat checkout-service.repository.OrderRepository.findByCustomer(OrderRepository.java:102)",
+    "resolution": "Missing index on orders(customer_id, created_at) meant the query was doing a full table scan on a table that had grown past 40M rows. Added composite index; p99 query latency dropped from 15s+ to 40ms."
+  },
+  {
+    "log_id": "INC-0032",
+    "timestamp": "2026-04-23T05:16:00.000Z",
+    "service": "inventory-service",
+    "error_type": "RateLimitExceeded",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-04-23T05:16:00.000Z WARN [inventory-service] http.client - 429 Too Many Requests from geolocation-api, Retry-After: 60s\n\tat inventory-service.client.GeoClient.lookup(GeoClient.java:29)\n\tat inventory-service.service.FraudScoringService.score(FraudScoringService.java:71)",
+    "resolution": "A new batch fraud-rescan feature was calling the geolocation API per-row instead of batching, blowing through our rate limit tier. Added request batching (100 addresses per call) which cut call volume by ~95% and stayed well under the limit."
+  },
+  {
+    "log_id": "INC-0059",
+    "timestamp": "2026-04-23T09:28:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "IndexOutOfBounds",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-04-23T09:28:00.000Z ERROR [image-processing-service] app - IndexError: list index out of range\n  File \"/app/reports/weekly_summary.py\", line 30, in top_categories\n    return sorted_categories[:5][top_n]\nIndexError: list index out of range",
+    "resolution": "Internal weekly reporting script (not customer-facing) failed when fewer than 5 categories had sales in a given week. Fixed slicing logic; script reran successfully on manual trigger, no data was lost since it's idempotent."
+  },
+  {
+    "log_id": "INC-0047",
+    "timestamp": "2026-04-25T08:50:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "UnhandledPromiseRejection",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-04-25T08:50:00.000Z ERROR [payment-gateway] node - UnhandledPromiseRejectionWarning: Error: Cannot read properties of undefined (reading 'items')\n    at CartService.getTotal (/app/src/services/cart.js:52:19)\n    at async CartController.view (/app/src/controllers/cart.js:14:22)",
+    "resolution": "Race condition: cart total was computed before the cart-items fetch promise resolved on cold cache. Awaited the fetch properly and added a loading guard in the controller."
+  },
+  {
+    "log_id": "INC-0021",
+    "timestamp": "2026-04-26T21:04:00.000Z",
+    "service": "analytics-pipeline",
+    "error_type": "NullPointerException",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-04-26T21:04:00.000Z ERROR [analytics-pipeline] app - Unhandled exception while processing request\njava.lang.NullPointerException: Cannot invoke \"User.getEmail()\" because \"user\" is null\n\tat analytics-pipeline.service.NotificationService.sendReceipt(NotificationService.java:41)\n\tat analytics-pipeline.controller.OrderController.confirm(OrderController.java:97)",
+    "resolution": "Guest checkout orders don't have a User record, but the receipt-sending path assumed one always existed. Added a null check and fall back to sending the receipt to the guest email captured at checkout instead of the User entity."
+  },
+  {
+    "log_id": "INC-0050",
+    "timestamp": "2026-04-30T18:31:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "KeyError",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-04-30T18:31:00.000Z ERROR [user-profile-service] app - Traceback (most recent call last):\n  File \"/app/pipeline/transform.py\", line 88, in normalize_event\n    region = payload[\"geo\"][\"region\"]\nKeyError: 'region'",
+    "resolution": "A subset of mobile clients on an old app version send events without the 'geo.region' field. Added .get() with a default of 'unknown' and back-filled affected rows in a one-off batch correction."
+  },
+  {
+    "log_id": "INC-0009",
+    "timestamp": "2026-05-01T21:43:00.000Z",
+    "service": "analytics-pipeline",
+    "error_type": "ConnectionRefused",
+    "layer": "network",
+    "severity": "critical",
+    "raw_log": "2026-05-01T21:43:00.000Z FATAL [analytics-pipeline] http.client - Connect to payments-internal:8443 failed: Connection refused\njava.net.ConnectException: Connection refused\n\tat java.base/sun.nio.ch.Net.connect0(Native Method)\n\tat analytics-pipeline.client.PaymentClient.charge(PaymentClient.java:19)\n\tat analytics-pipeline.service.CheckoutService.completeCheckout(CheckoutService.java:88)",
+    "resolution": "payments-internal pods were killed by a bad rollout (readiness probe misconfigured, traffic routed to pods still starting). Rolled back the deploy and fixed the readiness probe to check an actual DB connection instead of just process liveness."
+  },
+  {
+    "log_id": "INC-0042",
+    "timestamp": "2026-05-02T16:33:00.000Z",
+    "service": "analytics-pipeline",
+    "error_type": "DiskSpaceWarning",
+    "layer": "infrastructure",
+    "severity": "low",
+    "raw_log": "2026-05-02T16:33:00.000Z WARN [analytics-pipeline] infra.disk - Disk usage at 71% on volume /data (staging replica), threshold alert set at 90%\nNo action required; monitoring only.",
+    "resolution": "Staging replica disk usage climbing gradually from log retention, well under the 90% alert threshold. Scheduled log rotation cleanup job; no production impact, not urgent."
+  },
+  {
+    "log_id": "INC-0007",
+    "timestamp": "2026-05-06T16:48:00.000Z",
+    "service": "analytics-pipeline",
+    "error_type": "DNSResolutionFailure",
+    "layer": "network",
+    "severity": "high",
+    "raw_log": "2026-05-06T16:48:00.000Z ERROR [analytics-pipeline] http.client - Failed to resolve host: api.partner-shipping.com\njava.net.UnknownHostException: api.partner-shipping.com\n\tat java.base/java.net.InetAddress$CachedAddresses.get(InetAddress.java:797)\n\tat analytics-pipeline.client.ShippingClient.getRates(ShippingClient.java:47)\n\tat analytics-pipeline.service.OrderService.calculateShipping(OrderService.java:210)",
+    "resolution": "Upstream partner rotated their DNS records and our internal resolver's cache TTL was stale for 20 minutes cluster-wide. Not fixable on our side beyond adding a circuit breaker + fallback shipping estimate so checkout doesn't hard-fail when the partner API is unreachable."
+  },
+  {
+    "log_id": "INC-0033",
+    "timestamp": "2026-05-07T09:46:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "RateLimitExceeded",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-05-07T09:46:00.000Z WARN [image-processing-service] http.client - 429 Too Many Requests from geolocation-api, Retry-After: 60s\n\tat image-processing-service.client.GeoClient.lookup(GeoClient.java:29)\n\tat image-processing-service.service.FraudScoringService.score(FraudScoringService.java:71)",
+    "resolution": "A new batch fraud-rescan feature was calling the geolocation API per-row instead of batching, blowing through our rate limit tier. Added request batching (100 addresses per call) which cut call volume by ~95% and stayed well under the limit."
+  },
+  {
+    "log_id": "INC-0018",
+    "timestamp": "2026-05-10T22:53:00.000Z",
+    "service": "notification-service",
+    "error_type": "OutOfMemoryError",
+    "layer": "application",
+    "severity": "critical",
+    "raw_log": "2026-05-10T22:53:00.000Z FATAL [notification-service] jvm - java.lang.OutOfMemoryError: Java heap space\njava.lang.OutOfMemoryError: Java heap space\n\tat java.base/java.util.Arrays.copyOf(Arrays.java:3745)\n\tat notification-service.pipeline.ImageResizer.loadFullResolution(ImageResizer.java:74)\n\tat notification-service.worker.ResizeWorker.run(ResizeWorker.java:29)\nContainer was OOMKilled by kubelet.",
+    "resolution": "Image resize worker was loading full-resolution uploads (up to 80MB) entirely into memory before downscaling, and a batch of high-res uploads from a single customer triggered repeated OOMKills. Switched to streaming/tiled decoding and capped max input dimensions; also raised container memory limit as a secondary safety margin."
+  },
+  {
+    "log_id": "INC-0051",
+    "timestamp": "2026-05-12T03:44:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "KeyError",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-05-12T03:44:00.000Z ERROR [image-processing-service] app - Traceback (most recent call last):\n  File \"/app/pipeline/transform.py\", line 88, in normalize_event\n    region = payload[\"geo\"][\"region\"]\nKeyError: 'region'",
+    "resolution": "A subset of mobile clients on an old app version send events without the 'geo.region' field. Added .get() with a default of 'unknown' and back-filled affected rows in a one-off batch correction."
+  },
+  {
+    "log_id": "INC-0030",
+    "timestamp": "2026-05-23T13:36:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "RateLimitExceeded",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-05-23T13:36:00.000Z WARN [payment-gateway] http.client - 429 Too Many Requests from geolocation-api, Retry-After: 60s\n\tat payment-gateway.client.GeoClient.lookup(GeoClient.java:29)\n\tat payment-gateway.service.FraudScoringService.score(FraudScoringService.java:71)",
+    "resolution": "A new batch fraud-rescan feature was calling the geolocation API per-row instead of batching, blowing through our rate limit tier. Added request batching (100 addresses per call) which cut call volume by ~95% and stayed well under the limit."
+  },
+  {
+    "log_id": "INC-0055",
+    "timestamp": "2026-05-25T01:00:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "TimeoutError",
+    "layer": "database",
+    "severity": "high",
+    "raw_log": "2026-05-25T01:00:00.000Z ERROR [user-profile-service] db - Query timeout after 15000ms: SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC\n\tat user-profile-service.repository.OrderRepository.findByCustomer(OrderRepository.java:102)",
+    "resolution": "Missing index on orders(customer_id, created_at) meant the query was doing a full table scan on a table that had grown past 40M rows. Added composite index; p99 query latency dropped from 15s+ to 40ms."
+  },
+  {
+    "log_id": "INC-0054",
+    "timestamp": "2026-05-28T06:50:00.000Z",
+    "service": "notification-service",
+    "error_type": "TimeoutError",
+    "layer": "database",
+    "severity": "high",
+    "raw_log": "2026-05-28T06:50:00.000Z ERROR [notification-service] db - Query timeout after 15000ms: SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC\n\tat notification-service.repository.OrderRepository.findByCustomer(OrderRepository.java:102)",
+    "resolution": "Missing index on orders(customer_id, created_at) meant the query was doing a full table scan on a table that had grown past 40M rows. Added composite index; p99 query latency dropped from 15s+ to 40ms."
+  },
+  {
+    "log_id": "INC-0049",
+    "timestamp": "2026-05-30T09:22:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "UnhandledPromiseRejection",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-05-30T09:22:00.000Z ERROR [user-profile-service] node - UnhandledPromiseRejectionWarning: Error: Cannot read properties of undefined (reading 'items')\n    at CartService.getTotal (/app/src/services/cart.js:52:19)\n    at async CartController.view (/app/src/controllers/cart.js:14:22)",
+    "resolution": "Race condition: cart total was computed before the cart-items fetch promise resolved on cold cache. Awaited the fetch properly and added a loading guard in the controller."
+  },
+  {
+    "log_id": "INC-0044",
+    "timestamp": "2026-06-03T07:37:00.000Z",
+    "service": "notification-service",
+    "error_type": "DiskSpaceWarning",
+    "layer": "infrastructure",
+    "severity": "low",
+    "raw_log": "2026-06-03T07:37:00.000Z WARN [notification-service] infra.disk - Disk usage at 71% on volume /data (staging replica), threshold alert set at 90%\nNo action required; monitoring only.",
+    "resolution": "Staging replica disk usage climbing gradually from log retention, well under the 90% alert threshold. Scheduled log rotation cleanup job; no production impact, not urgent."
+  },
+  {
+    "log_id": "INC-0028",
+    "timestamp": "2026-06-10T19:47:00.000Z",
+    "service": "order-service",
+    "error_type": "DeprecatedAPIWarning",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-06-10T19:47:00.000Z WARN [order-service] app - Call to /v1/legacy/search is deprecated and will be removed on 2026-12-01. Client: internal-cron-job. Please migrate to /v2/search.\n\tat order-service.controller.LegacySearchController.search(LegacySearchController.java:15)",
+    "resolution": "Informational only \u2014 an internal cron job was still calling the deprecated v1 search endpoint. Filed a low-priority ticket to migrate the cron job before the v1 sunset date; no immediate action required."
+  },
+  {
+    "log_id": "INC-0014",
+    "timestamp": "2026-06-14T00:54:00.000Z",
+    "service": "search-service",
+    "error_type": "TLSHandshakeFailure",
+    "layer": "network",
+    "severity": "high",
+    "raw_log": "2026-06-14T00:54:00.000Z ERROR [search-service] http.client - SSL handshake failed: certificate has expired\njavax.net.ssl.SSLHandshakeException: PKIX path validation failed: java.security.cert.CertPathValidatorException: certificate has expired\n\tat search-service.client.FraudCheckClient.verify(FraudCheckClient.java:55)",
+    "resolution": "Internal mTLS cert for the fraud-check sidecar expired; cert-manager renewal job had been silently failing for 3 weeks due to a quota limit on the ACME issuer. Renewed manually and added an alert on cert expiry < 7 days."
+  },
+  {
+    "log_id": "INC-0035",
+    "timestamp": "2026-06-17T14:35:00.000Z",
+    "service": "checkout-service",
+    "error_type": "StackOverflowError",
+    "layer": "application",
+    "severity": "high",
+    "raw_log": "2026-06-17T14:35:00.000Z ERROR [checkout-service] app - java.lang.StackOverflowError\n\tat checkout-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat checkout-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat checkout-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\t... 4200 more",
+    "resolution": "A data-entry error created a circular parent-category reference (category A's parent was set to a descendant of itself), which sent the recursive path-builder into infinite recursion for any product under that category. Added a cycle check with a max-depth guard, and fixed the bad row in the categories table."
+  },
+  {
+    "log_id": "INC-0058",
+    "timestamp": "2026-06-20T12:07:00.000Z",
+    "service": "auth-service",
+    "error_type": "IndexOutOfBounds",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-06-20T12:07:00.000Z ERROR [auth-service] app - IndexError: list index out of range\n  File \"/app/reports/weekly_summary.py\", line 30, in top_categories\n    return sorted_categories[:5][top_n]\nIndexError: list index out of range",
+    "resolution": "Internal weekly reporting script (not customer-facing) failed when fewer than 5 categories had sales in a given week. Fixed slicing logic; script reran successfully on manual trigger, no data was lost since it's idempotent."
+  },
+  {
+    "log_id": "INC-0024",
+    "timestamp": "2026-06-22T01:55:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "RetryExhausted",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-06-22T01:55:00.000Z WARN [payment-gateway] http.client - Retry attempts exhausted (3/3) calling tax-calculation-api, last status 503\n\tat payment-gateway.client.TaxClient.getRate(TaxClient.java:63)\n\tat payment-gateway.service.PricingService.applyTax(PricingService.java:22)\nFalling back to cached tax table (last updated 4h ago).",
+    "resolution": "Upstream tax API had a brief maintenance window. Our fallback-to-cache path worked as designed, so no customer-visible impact \u2014 orders used slightly stale (but valid) tax rates for ~12 minutes. No code change needed; confirmed cache fallback logic is sound."
+  },
+  {
+    "log_id": "INC-0031",
+    "timestamp": "2026-06-25T09:01:00.000Z",
+    "service": "auth-service",
+    "error_type": "RateLimitExceeded",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-06-25T09:01:00.000Z WARN [auth-service] http.client - 429 Too Many Requests from geolocation-api, Retry-After: 60s\n\tat auth-service.client.GeoClient.lookup(GeoClient.java:29)\n\tat auth-service.service.FraudScoringService.score(FraudScoringService.java:71)",
+    "resolution": "A new batch fraud-rescan feature was calling the geolocation API per-row instead of batching, blowing through our rate limit tier. Added request batching (100 addresses per call) which cut call volume by ~95% and stayed well under the limit."
+  },
+  {
+    "log_id": "INC-0036",
+    "timestamp": "2026-06-25T18:56:00.000Z",
+    "service": "inventory-service",
+    "error_type": "StackOverflowError",
+    "layer": "application",
+    "severity": "high",
+    "raw_log": "2026-06-25T18:56:00.000Z ERROR [inventory-service] app - java.lang.StackOverflowError\n\tat inventory-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat inventory-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat inventory-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\t... 4200 more",
+    "resolution": "A data-entry error created a circular parent-category reference (category A's parent was set to a descendant of itself), which sent the recursive path-builder into infinite recursion for any product under that category. Added a cycle check with a max-depth guard, and fixed the bad row in the categories table."
+  },
+  {
+    "log_id": "INC-0023",
+    "timestamp": "2026-07-02T13:11:00.000Z",
+    "service": "inventory-service",
+    "error_type": "RetryExhausted",
+    "layer": "external-api",
+    "severity": "medium",
+    "raw_log": "2026-07-02T13:11:00.000Z WARN [inventory-service] http.client - Retry attempts exhausted (3/3) calling tax-calculation-api, last status 503\n\tat inventory-service.client.TaxClient.getRate(TaxClient.java:63)\n\tat inventory-service.service.PricingService.applyTax(PricingService.java:22)\nFalling back to cached tax table (last updated 4h ago).",
+    "resolution": "Upstream tax API had a brief maintenance window. Our fallback-to-cache path worked as designed, so no customer-visible impact \u2014 orders used slightly stale (but valid) tax rates for ~12 minutes. No code change needed; confirmed cache fallback logic is sound."
+  },
+  {
+    "log_id": "INC-0001",
+    "timestamp": "2026-07-03T08:52:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "ConnectionPoolExhausted",
+    "layer": "database",
+    "severity": "critical",
+    "raw_log": "2026-07-03T08:52:00.000Z ERROR [payment-gateway] db.pool.HikariPool - HikariPool-1 - Connection is not available, request timed out after 30000ms.\njava.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms\n\tat com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:696)\n\tat com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:197)\n\tat payment-gateway.repository.OrderRepository.save(OrderRepository.java:88)\n\tat payment-gateway.service.CheckoutService.placeOrder(CheckoutService.java:142)",
+    "resolution": "Root cause: connection pool max size (10) was undersized for peak traffic after a marketing campaign spike. Bumped HikariCP maximumPoolSize to 50 and added a PagerDuty alert on pool utilization > 80%. Also found a leaked connection in a batch job that wasn't closing on exception; fixed with try-with-resources."
+  },
+  {
+    "log_id": "INC-0045",
+    "timestamp": "2026-07-04T00:52:00.000Z",
+    "service": "search-service",
+    "error_type": "DiskSpaceWarning",
+    "layer": "infrastructure",
+    "severity": "low",
+    "raw_log": "2026-07-04T00:52:00.000Z WARN [search-service] infra.disk - Disk usage at 71% on volume /data (staging replica), threshold alert set at 90%\nNo action required; monitoring only.",
+    "resolution": "Staging replica disk usage climbing gradually from log retention, well under the 90% alert threshold. Scheduled log rotation cleanup job; no production impact, not urgent."
+  },
+  {
+    "log_id": "INC-0013",
+    "timestamp": "2026-07-04T17:12:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "TLSHandshakeFailure",
+    "layer": "network",
+    "severity": "high",
+    "raw_log": "2026-07-04T17:12:00.000Z ERROR [user-profile-service] http.client - SSL handshake failed: certificate has expired\njavax.net.ssl.SSLHandshakeException: PKIX path validation failed: java.security.cert.CertPathValidatorException: certificate has expired\n\tat user-profile-service.client.FraudCheckClient.verify(FraudCheckClient.java:55)",
+    "resolution": "Internal mTLS cert for the fraud-check sidecar expired; cert-manager renewal job had been silently failing for 3 weeks due to a quota limit on the ACME issuer. Renewed manually and added an alert on cert expiry < 7 days."
+  },
+  {
+    "log_id": "INC-0037",
+    "timestamp": "2026-07-05T10:02:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "StackOverflowError",
+    "layer": "application",
+    "severity": "high",
+    "raw_log": "2026-07-05T10:02:00.000Z ERROR [user-profile-service] app - java.lang.StackOverflowError\n\tat user-profile-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat user-profile-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat user-profile-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\t... 4200 more",
+    "resolution": "A data-entry error created a circular parent-category reference (category A's parent was set to a descendant of itself), which sent the recursive path-builder into infinite recursion for any product under that category. Added a cycle check with a max-depth guard, and fixed the bad row in the categories table."
+  },
+  {
+    "log_id": "INC-0027",
+    "timestamp": "2026-07-13T16:37:00.000Z",
+    "service": "notification-service",
+    "error_type": "DeprecatedAPIWarning",
+    "layer": "application",
+    "severity": "low",
+    "raw_log": "2026-07-13T16:37:00.000Z WARN [notification-service] app - Call to /v1/legacy/search is deprecated and will be removed on 2026-12-01. Client: internal-cron-job. Please migrate to /v2/search.\n\tat notification-service.controller.LegacySearchController.search(LegacySearchController.java:15)",
+    "resolution": "Informational only \u2014 an internal cron job was still calling the deprecated v1 search endpoint. Filed a low-priority ticket to migrate the cron job before the v1 sunset date; no immediate action required."
+  },
+  {
+    "log_id": "INC-0040",
+    "timestamp": "2026-07-17T01:44:00.000Z",
+    "service": "order-service",
+    "error_type": "SerializationError",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-07-17T01:44:00.000Z ERROR [order-service] app - Failed to deserialize message from queue 'order.events'\ncom.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"loyaltyTier\" (class OrderEvent), not marked as ignorable\n\tat order-service.consumer.OrderEventConsumer.onMessage(OrderEventConsumer.java:26)",
+    "resolution": "order-service started publishing a new 'loyaltyTier' field before analytics-pipeline's consumer schema was updated (deploy ordering mistake). Added @JsonIgnoreProperties(ignoreUnknown = true) as a safety net and updated the deploy runbook to require consumer-first schema rollout for additive fields."
+  },
+  {
+    "log_id": "INC-0041",
+    "timestamp": "2026-07-17T15:45:00.000Z",
+    "service": "analytics-pipeline",
+    "error_type": "SerializationError",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-07-17T15:45:00.000Z ERROR [analytics-pipeline] app - Failed to deserialize message from queue 'order.events'\ncom.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"loyaltyTier\" (class OrderEvent), not marked as ignorable\n\tat analytics-pipeline.consumer.OrderEventConsumer.onMessage(OrderEventConsumer.java:26)",
+    "resolution": "order-service started publishing a new 'loyaltyTier' field before analytics-pipeline's consumer schema was updated (deploy ordering mistake). Added @JsonIgnoreProperties(ignoreUnknown = true) as a safety net and updated the deploy runbook to require consumer-first schema rollout for additive fields."
+  },
+  {
+    "log_id": "INC-0053",
+    "timestamp": "2026-07-22T10:42:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "TimeoutError",
+    "layer": "database",
+    "severity": "high",
+    "raw_log": "2026-07-22T10:42:00.000Z ERROR [payment-gateway] db - Query timeout after 15000ms: SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC\n\tat payment-gateway.repository.OrderRepository.findByCustomer(OrderRepository.java:102)",
+    "resolution": "Missing index on orders(customer_id, created_at) meant the query was doing a full table scan on a table that had grown past 40M rows. Added composite index; p99 query latency dropped from 15s+ to 40ms."
+  },
+  {
+    "log_id": "INC-0046",
+    "timestamp": "2026-07-22T17:51:00.000Z",
+    "service": "order-service",
+    "error_type": "UnhandledPromiseRejection",
+    "layer": "application",
+    "severity": "medium",
+    "raw_log": "2026-07-22T17:51:00.000Z ERROR [order-service] node - UnhandledPromiseRejectionWarning: Error: Cannot read properties of undefined (reading 'items')\n    at CartService.getTotal (/app/src/services/cart.js:52:19)\n    at async CartController.view (/app/src/controllers/cart.js:14:22)",
+    "resolution": "Race condition: cart total was computed before the cart-items fetch promise resolved on cold cache. Awaited the fetch properly and added a loading guard in the controller."
+  },
+  {
+    "log_id": "INC-0016",
+    "timestamp": "2026-07-24T22:38:00.000Z",
+    "service": "payment-gateway",
+    "error_type": "TLSHandshakeFailure",
+    "layer": "network",
+    "severity": "high",
+    "raw_log": "2026-07-24T22:38:00.000Z ERROR [payment-gateway] http.client - SSL handshake failed: certificate has expired\njavax.net.ssl.SSLHandshakeException: PKIX path validation failed: java.security.cert.CertPathValidatorException: certificate has expired\n\tat payment-gateway.client.FraudCheckClient.verify(FraudCheckClient.java:55)",
+    "resolution": "Internal mTLS cert for the fraud-check sidecar expired; cert-manager renewal job had been silently failing for 3 weeks due to a quota limit on the ACME issuer. Renewed manually and added an alert on cert expiry < 7 days."
+  },
+  {
+    "log_id": "INC-0006",
+    "timestamp": "2026-07-25T11:47:00.000Z",
+    "service": "user-profile-service",
+    "error_type": "DeadlockDetected",
+    "layer": "database",
+    "severity": "high",
+    "raw_log": "2026-07-25T11:47:00.000Z ERROR [user-profile-service] db.transaction - Deadlock found when trying to get lock; try restarting transaction\norg.springframework.dao.DeadlockLoserDataAccessException: PreparedStatementCallback; SQL [UPDATE inventory SET qty = qty - ? WHERE sku = ?]; Deadlock found when trying to get lock; try restarting transaction\n\tat user-profile-service.dao.InventoryDao.decrementStock(InventoryDao.java:61)\n\tat user-profile-service.service.ReservationService.reserve(ReservationService.java:33)",
+    "resolution": "Two competing transactions were updating inventory rows in different lock orders during a flash sale. Reordered updates to always acquire locks by ascending SKU id, and added a bounded retry-with-backoff around the transaction. Deadlocks dropped to zero after deploy."
+  },
+  {
+    "log_id": "INC-0015",
+    "timestamp": "2026-07-25T15:36:00.000Z",
+    "service": "notification-service",
+    "error_type": "TLSHandshakeFailure",
+    "layer": "network",
+    "severity": "high",
+    "raw_log": "2026-07-25T15:36:00.000Z ERROR [notification-service] http.client - SSL handshake failed: certificate has expired\njavax.net.ssl.SSLHandshakeException: PKIX path validation failed: java.security.cert.CertPathValidatorException: certificate has expired\n\tat notification-service.client.FraudCheckClient.verify(FraudCheckClient.java:55)",
+    "resolution": "Internal mTLS cert for the fraud-check sidecar expired; cert-manager renewal job had been silently failing for 3 weeks due to a quota limit on the ACME issuer. Renewed manually and added an alert on cert expiry < 7 days."
+  },
+  {
+    "log_id": "INC-0034",
+    "timestamp": "2026-08-04T23:09:00.000Z",
+    "service": "search-service",
+    "error_type": "StackOverflowError",
+    "layer": "application",
+    "severity": "high",
+    "raw_log": "2026-08-04T23:09:00.000Z ERROR [search-service] app - java.lang.StackOverflowError\n\tat search-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat search-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\tat search-service.model.CategoryTree.buildPath(CategoryTree.java:34)\n\t... 4200 more",
+    "resolution": "A data-entry error created a circular parent-category reference (category A's parent was set to a descendant of itself), which sent the recursive path-builder into infinite recursion for any product under that category. Added a cycle check with a max-depth guard, and fixed the bad row in the categories table."
+  },
+  {
+    "log_id": "INC-0005",
+    "timestamp": "2026-08-05T00:59:00.000Z",
+    "service": "image-processing-service",
+    "error_type": "DeadlockDetected",
+    "layer": "database",
+    "severity": "high",
+    "raw_log": "2026-08-05T00:59:00.000Z ERROR [image-processing-service] db.transaction - Deadlock found when trying to get lock; try restarting transaction\norg.springframework.dao.DeadlockLoserDataAccessException: PreparedStatementCallback; SQL [UPDATE inventory SET qty = qty - ? WHERE sku = ?]; Deadlock found when trying to get lock; try restarting transaction\n\tat image-processing-service.dao.InventoryDao.decrementStock(InventoryDao.java:61)\n\tat image-processing-service.service.ReservationService.reserve(ReservationService.java:33)",
+    "resolution": "Two competing transactions were updating inventory rows in different lock orders during a flash sale. Reordered updates to always acquire locks by ascending SKU id, and added a bounded retry-with-backoff around the transaction. Deadlocks dropped to zero after deploy."
+  },
+  {
+    "log_id": "INC-0011",
+    "timestamp": "2026-08-09T08:12:00.000Z",
+    "service": "inventory-service",
+    "error_type": "ConnectionRefused",
+    "layer": "network",
+    "severity": "critical",
+    "raw_log": "2026-08-09T08:12:00.000Z FATAL [inventory-service] http.client - Connect to payments-internal:8443 failed: Connection refused\njava.net.ConnectException: Connection refused\n\tat java.base/sun.nio.ch.Net.connect0(Native Method)\n\tat inventory-service.client.PaymentClient.charge(PaymentClient.java:19)\n\tat inventory-service.service.CheckoutService.completeCheckout(CheckoutService.java:88)",
+    "resolution": "payments-internal pods were killed by a bad rollout (readiness probe misconfigured, traffic routed to pods still starting). Rolled back the deploy and fixed the readiness probe to check an actual DB connection instead of just process liveness."
+  }
+]
