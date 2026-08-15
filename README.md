@@ -6,6 +6,8 @@ whether this has happened before — and how it was fixed.**
 A local-first triage agent for error logs and stack traces.
 *Triage + agent = Triagent.*
 
+![The Triagent dashboard triaging a Python stack trace](docs/dashboard.png)
+
 Built for the job SRE/DevOps teams actually do at 3am: something is broken,
 there's a wall of stack trace, and the first question is always *"is this
 serious, and have we seen it before?"*
